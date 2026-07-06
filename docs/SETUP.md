@@ -15,6 +15,15 @@ Every phase must pass these checks before moving to the next phase:
 - Wait for GitHub Actions workflow `Mobile Phase Gate` to pass
 - Do not start next phase until the workflow is green
 
+3. Protect `main` branch with required check:
+
+```bash
+export GITHUB_TOKEN=<PAT_with_repo_scope>
+./scripts/apply_branch_protection.sh
+```
+
+Note: The default Codespaces integration token may return `403 Resource not accessible by integration` for branch protection API. In that case, use a personal access token once.
+
 If local environment does not have Flutter, CI result becomes the mandatory source of truth.
 
 ## Prerequisites
