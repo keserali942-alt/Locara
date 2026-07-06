@@ -1,5 +1,22 @@
 # Setup
 
+## Mandatory Phase Gate
+
+Every phase must pass these checks before moving to the next phase:
+
+1. Local verification:
+
+```bash
+./scripts/verify_mobile_phase.sh
+```
+
+2. Remote verification:
+- Push branch to GitHub
+- Wait for GitHub Actions workflow `Mobile Phase Gate` to pass
+- Do not start next phase until the workflow is green
+
+If local environment does not have Flutter, CI result becomes the mandatory source of truth.
+
 ## Prerequisites
 
 - Flutter stable

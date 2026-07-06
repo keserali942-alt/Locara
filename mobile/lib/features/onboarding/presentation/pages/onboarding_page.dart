@@ -133,7 +133,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             QuestionCard(
               title: l10n.onboardingWalking,
               child: DropdownButtonFormField<String>(
-                initialValue: _walkingPreference,
+                value: _walkingPreference,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: [
                   DropdownMenuItem(
@@ -162,7 +162,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             QuestionCard(
               title: l10n.onboardingPace,
               child: DropdownButtonFormField<String>(
-                initialValue: _tripPace,
+                value: _tripPace,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: [
                   DropdownMenuItem(value: 'slow', child: Text(l10n.paceSlow)),
