@@ -91,7 +91,7 @@ locora/
 │   │   │   ├── env.dart           # Environment variables
 │   │   │   ├── supabase_config.dart
 │   │   │   ├── theme_config.dart  # Material 3 tema
-│   │   │   └── router_config.dart # Navigation
+│   │   │   └── router_config.dart # GoRouter navigation
 │   │   ├── core/
 │   │   │   ├── constants/
 │   │   │   ├── extensions/
@@ -104,9 +104,8 @@ locora/
 │   │   │   ├── profile/
 │   │   │   └── (diğer features)
 │   │   └── l10n/               # Localization
-│   │       ├── en.json
-│   │       ├── tr.json
-│   │       └── app_localizations.dart
+│   │       ├── app_en.arb
+│   │       └── app_tr.arb
 │   ├── test/
 │   └── android/, ios/, web/    # Platform-specific
 │
@@ -183,21 +182,25 @@ Tema değişimi: Riverpod provider'ı (`themeProvider`) üzerinden
 ### Dosya Yapısı
 ```
 mobile/lib/l10n/
-├── en.json       # İngilizce çeviriler
-├── tr.json       # Türkçe çeviriler
-└── app_localizations.dart  # Dart wrapper
+├── app_en.arb       # İngilizce çeviriler
+└── app_tr.arb       # Türkçe çeviriler
 ```
+
+Localization üretimi Flutter resmi `gen_l10n` sistemiyle yapılır.
 
 ### Kullanım
 ```dart
-final l10n = AppLocalizations.of(context);
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+final l10n = AppLocalizations.of(context)!;
 Text(l10n.welcomeMessage); // context'e göre otomatik dil seçer
 ```
 
 ### Yeni Dil Ekleme
-1. `mobile/lib/l10n/{lang_code}.json` dosyası oluştur
-2. `app_localizations.dart` güncelle (dil listesine ekle)
-3. Bitti
+1. `mobile/lib/l10n/app_{lang_code}.arb` dosyası oluştur
+2. `app_en.arb` anahtarlarını çevir
+3. `flutter gen-l10n` çalıştır
+4. Bitti
 
 ---
 

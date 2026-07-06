@@ -1,0 +1,2834 @@
+===== FILE: CLAUDE.md =====
+# Locora — Proje Yönetim Rehberi
+
+Bu dosya, Claude Code'un her oturumda referans alması gereken proje kurallarını, stack'i ve geliştirme disiplinini içerir.
+
+## 📋 Proje Özeti
+
+**Locora** — Konum tabanlı, AI-destekli keşif ve plan yapma uygulaması. Kullanıcı, profiline göre kişiselleştirilmiş yerleri keşfeder, favorilere kaydeder, ve zamanı/bütçesi ile bir plan oluşturur.
+
+---
+
+## 🛠️ Stack (Değişmez)
+
+### Mobil
+- **Flutter** (latest stable)
+- **Dart** (Flutter uyumlu latest)
+- **Riverpod** (state management + dependency injection)
+- **Clean Architecture** (presentation / domain / data katmanları)
+
+### Backend
+- **Supabase** 
+  - PostgreSQL + PostGIS (yer verisi)
+  - Supabase Auth
+  - Supabase Storage
+  - Supabase Edge Functions (tüm dış API entegrasyonları)
+
+### UI/UX
+- **Material 3** tasarım sistemi
+- **Dark Mode** (baştan itibaren)
+- **Responsive tasarım**
+- **Çoklu dil** (TR/EN, genişletilebilir)
+
+---
+
+## 🏗️ Mimari Kurallar (Kesin)
+
+### 1. Clean Architecture
+```
+feature/
+  ├── presentation/
+  │   ├── pages/
+  │   ├── widgets/
+  │   └── providers.dart (Riverpod)
+  ├── domain/
+  │   ├── entities/
+  │   ├── repositories/ (arayüzler)
+  │   └── usecases/
+  └── data/
+      ├── datasources/
+      ├── models/
+      └── repositories/ (implementasyon)
+```
+
+### 2. Feature-First Klasör Yapısı
+Kod katmanlarına (presentation, domain, data) değil, özelliklere (auth, places, collections) göre organize edilir.
+
+### 3. Riverpod ile Dependency Injection
+- Tüm provider'lar feature'ın `presentation/providers.dart` içinde
+- Hiçbir provider doğrudan datasource'a erişmez; repository üzerinden geçer
+- State yönetimi: `StateNotifier`, `FutureProvider`, `StreamProvider`
+
+### 4. Repository Pattern
+- Presentation katmanı **hiçbir zaman** data source'ı doğrudan görmez
+- Her data source, repository arayüzünün arkasında saklanır
+- Repository implementasyonları dependency injection ile inject edilir
+
+### 5. Hiçbir Gizli Bilgi Kodda Olmayacak
+- Supabase URL, API Key, vb. **environment variables** (.env) üzerinden
+- Tüm dış servisler (Google Places, AI, vb.) **Edge Functions** üzerinden proxy'lenir
+- Client tarafında hiçbir API anahtarı bulunmayacak
+
+### 6. Error Handling
+- Custom exception sınıfları (domain katmanında)
+- try-catch blokları veri katmanında
+- Presentation katmanında meaningful error mesajları
+
+---
+
+## 📁 Monorepo Yapısı
+
+```
+locora/
+├── ROADMAP.md              # Tüm fazlar (bu dosya referans olarak okunacak)
+├── CLAUDE.md               # Bu dosya
+├── README.md               # Proje genel bilgileri
+├── .gitignore
+├── mobile/                 # Flutter uygulaması
+│   ├── pubspec.yaml
+│   ├── lib/
+│   │   ├── main.dart
+│   │   ├── config/
+│   │   │   ├── env.dart           # Environment variables
+│   │   │   ├── supabase_config.dart
+│   │   │   ├── theme_config.dart  # Material 3 tema
+│   │   │   └── router_config.dart # GoRouter navigation
+│   │   ├── core/
+│   │   │   ├── constants/
+│   │   │   ├── extensions/
+│   │   │   ├── utils/
+│   │   │   └── theme/
+│   │   ├── features/
+│   │   │   ├── auth/
+│   │   │   ├── places/
+│   │   │   ├── collections/
+│   │   │   ├── profile/
+│   │   │   └── (diğer features)
+│   │   └── l10n/               # Localization
+│   │       ├── app_en.arb
+│   │       └── app_tr.arb
+│   ├── test/
+│   └── android/, ios/, web/    # Platform-specific
+│
+├── supabase/                # Supabase backend
+│   ├── migrations/          # SQL migrations
+│   ├── seed.sql             # Test verileri
+│   ├── functions/           # Edge Functions
+│   │   ├── place-provider/  # Place API proxy
+│   │   ├── ai-tagging/      # AI etiketleme
+│   │   └── (diğer functions)
+│   └── .env.example         # Supabase env template
+│
+└── docs/                    # Dokümantasyon
+    ├── ARCHITECTURE.md      # Mimari derinlemesine
+    ├── API.md               # Edge Functions API
+    ├── LOCALIZATION.md      # Çeviri sistemi
+    └── SETUP.md             # Kurulum rehberi
+```
+
+---
+
+## 🔄 Faz Kuralları
+
+### Temel Prensip
+**Bir fazı bitirmeden bir sonrakine geçilmez.**
+
+Her fazın:
+- ✅ **Bitiş Kriteri** vardır ve karşılanmalıdır
+- ✅ **Production-ready** koddur (temporary çözümler, placeholder mimariler yok)
+- ✅ **Temel amacına** tamamen ulaşır
+- ✅ **Sonraki fazın temelini** oluşturur
+
+### İş Akışı
+1. **Faz başında:** Yol haritadan o fazın "Yapılacaklar" ve "Bitiş Kriteri" okunur
+2. **Çalışma sırasında:** Production-ready kod yazılır; hiçbir teknik borç bırakılmaz
+3. **Faz sonunda:** Bitiş kriteri kontrol edilir
+4. **Onay:** Eğer bitiş kriteri karşılanmışsa, bir sonraki faza geçilir
+
+---
+
+## ⚙️ Environment Variables
+
+### mobile/.env (git'e commit edilmeyecek)
+```
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=xxxxx
+ENVIRONMENT=development
+```
+
+### supabase/.env (git'e commit edilmeyecek)
+```
+SUPABASE_PROJECT_ID=xxxxx
+SUPABASE_PROJECT_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=xxxxx
+GOOGLE_PLACES_API_KEY=xxxxx  # Edge Functions'da kullanılacak
+```
+
+---
+
+## 🎨 Tema Sistemi (Material 3 + Dark Mode)
+
+- **Tema tanımı:** `mobile/lib/core/theme/app_theme.dart`
+- **Light Mode:** Varsayılan Material 3 colors
+- **Dark Mode:** Otomatik Material 3 dark variant
+- **Responsive:** Material 3'ün built-in breakpoint sistemi
+- **Font:** Satisfactory, responsive padding/sizing
+
+Tema değişimi: Riverpod provider'ı (`themeProvider`) üzerinden
+
+---
+
+## 🌍 Localization Sistemi
+
+### Dosya Yapısı
+```
+mobile/lib/l10n/
+├── app_en.arb       # İngilizce çeviriler
+└── app_tr.arb       # Türkçe çeviriler
+```
+
+Localization üretimi Flutter resmi `gen_l10n` sistemiyle yapılır.
+
+### Kullanım
+```dart
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+final l10n = AppLocalizations.of(context)!;
+Text(l10n.welcomeMessage); // context'e göre otomatik dil seçer
+```
+
+### Yeni Dil Ekleme
+1. `mobile/lib/l10n/app_{lang_code}.arb` dosyası oluştur
+2. `app_en.arb` anahtarlarını çevir
+3. `flutter gen-l10n` çalıştır
+4. Bitti
+
+---
+
+## 🚀 Supabase Entegrasyon
+
+### Client (Flutter)
+```dart
+// Supabase istemci, supabase_config.dart'ta singleton olarak
+final supabase = SupabaseClient.instance;
+```
+
+### Data Source Örneği
+```dart
+// Hiçbir API anahtarı burada yok; tüm çağrılar Edge Function'a gider
+final response = await supabase.functions.invoke(
+  'place-provider',
+  body: {'lat': 41.0, 'lng': 29.0, 'radius': 1000},
+);
+```
+
+### Edge Functions
+- Tüm dış servisler (Google Places, AI, vb.) buradan proxy'lenir
+- Supabase ve Google API anahtarları Supabase'te depolanır, client'ta değil
+- Her function'ın ayrı `index.ts` dosyası
+
+---
+
+## 📝 Kod Standartları
+
+### Naming Conventions
+- **Dosyalar:** snake_case (auth_repository.dart)
+- **Sınıflar:** PascalCase (AuthRepository)
+- **Değişkenler/Fonksiyonlar:** camelCase (userProfile)
+- **Constants:** UPPER_SNAKE_CASE (MAX_RETRIES)
+- **Enums:** PascalCase (UserRole)
+
+### Dokumentasyon
+- Tüm public sınıf/fonksiyona /// doc comment
+- Complex logic'e inline comment
+- Hiçbir TODO/FIXME bırakılmaz
+
+### Test
+- Unit test: domain entities ve use cases için
+- Widget test: UI bileşenleri için
+- Integration test: supabase entegrasyonu için
+- Test coverage: en az %70
+
+---
+
+## ✅ Kalite Kontrol
+
+Her faz bitmeden önce:
+1. **Bitiş Kriteri** kontrol edilir
+2. **Code formatting:** `dart format .`
+3. **Linting:** `flutter analyze`
+4. **Build:** `flutter build apk` / `flutter build ios` hata vermez
+5. **No hardcoded secrets:** Kodda API key, URL vb. yok
+6. **Production-ready:** Temporary solution, placeholder mimariler yok
+
+---
+
+## 🔗 Referans Dökümanları
+
+- ROADMAP.md — Tüm fazlar
+- mobile/lib/core/ARCHITECTURE.md — Clean Architecture uygulaması derinlemesine
+- supabase/ — Backend kurulumu
+
+---
+
+## 📞 İletişim ve Kurallar
+
+- **Her faz başında:** Faz numarası, "Yapılacaklar" ve "Bitiş Kriteri" açıkça belirtilir
+- **Bitince:** Özet, bitiş kriteri kontrol, ve "Onay bekliyorum" mesajı
+- **Hiçbir faza geçilmez:** Bitiş kriteri karşılanmadan
+
+---
+
+**Son Güncelleme:** 2026-07-06  
+**Versiyon:** 1.0 (Faz 0 için hazırlanmış)
+
+
+===== FILE: .gitignore =====
+# Flutter/Dart
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.metadata
+**/build/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/android/.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Environment files
+mobile/.env
+supabase/.env
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+
+===== FILE: README.md =====
+# Locora
+
+Locora is a location-based, AI-assisted discovery and planning app.
+
+This repository is organized as a monorepo:
+- `mobile/`: Flutter client app
+- `supabase/`: Postgres migrations and Edge Functions
+- `docs/`: architecture and setup documents
+
+## Phase 0 Status
+
+Phase 0 establishes:
+- Flutter + Supabase project skeleton
+- Feature-first Clean Architecture folders
+- Riverpod DI and state management foundations
+- Material 3 + dark mode toggle
+- TR/EN localization base with Flutter official `gen_l10n`
+- GoRouter-based navigation
+- Environment-based secret handling
+
+Note:
+- `places` wiring in mobile is a Phase 0 placeholder only, not Phase 2 behavior.
+
+## Quick Setup
+
+1. Install Flutter stable and Dart.
+2. Configure `mobile/.env` from `mobile/.env.example`.
+3. Configure `supabase/.env` from `supabase/.env.example`.
+4. Run Flutter app from `mobile/`.
+
+See `docs/SETUP.md` for details.
+
+
+===== FILE: ROADMAP.md =====
+# Locora Roadmap
+
+## Phase 0 - Infrastructure and Standards
+
+Completion criteria:
+- App launches and shows an empty home screen
+- Supabase client is initialized using env variables
+- Feature-first + Clean Architecture folder structure exists
+- Riverpod providers are wired
+- Dark mode can be toggled
+- No secret is hardcoded in source files
+
+## Phase 1+
+
+Future phases should start only after Phase 0 completion criteria are validated.
+
+## Phase 1 - Identity and Discovery Profile
+
+Completion criteria:
+- User can register/sign in with email and OAuth providers
+- User completes onboarding survey
+- Data is persisted into `users` and `discovery_profile`
+
+Status:
+- Implemented in code, waiting runtime verification in environment with Flutter SDK.
+
+
+===== FILE: docs/API.md =====
+# API
+
+## Edge Functions
+
+### place-provider
+- Method: `POST`
+- Body:
+  - `lat` (number)
+  - `lng` (number)
+  - `radius` (number, optional)
+- Purpose: proxy place discovery requests to provider APIs
+
+### ai-tagging
+- Method: `POST`
+- Purpose: classify/summarize place metadata (Phase 0: placeholder)
+
+
+===== FILE: docs/ARCHITECTURE.md =====
+# Architecture
+
+Locora follows:
+- Feature-first organization
+- Clean Architecture layers inside each feature
+- Riverpod for DI and state management
+- Repository Pattern between presentation and data layers
+
+## Example Feature Layout
+
+```
+features/places/
+  presentation/
+  domain/
+  data/
+```
+
+## Secret Handling
+
+- Mobile app reads only public Supabase URL/anon key from env.
+- External API keys are never shipped to client.
+- Third-party APIs are proxied through Supabase Edge Functions.
+
+
+===== FILE: docs/LOCALIZATION.md =====
+# Localization
+
+Current locales:
+- Turkish (`tr`)
+- English (`en`)
+
+System:
+- Flutter official `gen_l10n`
+- Config: `mobile/l10n.yaml`
+- ARB files: `mobile/lib/l10n/app_en.arb`, `mobile/lib/l10n/app_tr.arb`
+
+## Add a New Locale
+
+1. Add `mobile/lib/l10n/app_{code}.arb`
+2. Add translated keys matching `app_en.arb`
+3. Run `flutter gen-l10n` (or `flutter run`/`flutter test`)
+4. Done
+
+
+===== FILE: docs/SETUP.md =====
+# Setup
+
+## Prerequisites
+
+- Flutter stable
+- Dart SDK (bundled with Flutter)
+- Supabase CLI (optional for local backend workflow)
+
+## Mobile
+
+1. Copy `mobile/.env.example` to `mobile/.env`
+2. Fill values:
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+3. Run:
+
+```bash
+cd mobile
+flutter pub get
+flutter run
+```
+
+## Phase 0 Verification Checklist
+
+Run from `mobile/`:
+
+```bash
+flutter pub get
+flutter gen-l10n
+flutter analyze
+flutter test
+```
+
+Expected:
+- `flutter analyze` returns no errors
+- Widget smoke test passes
+- App opens and shows empty home screen with theme/language actions
+
+## Supabase
+
+1. Copy `supabase/.env.example` to `supabase/.env`
+2. Add required secrets
+3. Deploy functions with Supabase CLI when ready
+4. Configure OAuth providers in Supabase Dashboard:
+   - Enable Google and Apple providers
+   - Add client IDs/secrets
+   - Set redirect URLs for the app and local development
+5. Configure mobile deep-link / redirect schemes in the platform projects:
+   - Android intent filter for the OAuth redirect scheme
+   - iOS URL types / associated domains as required by the provider
+
+## Phase 1 Verification Checklist
+
+1. Run database migration that creates `users` and `discovery_profile` tables.
+2. Start app and register with email/password or Google/Apple.
+3. Complete onboarding survey and submit.
+4. Verify records in SQL editor:
+
+```sql
+select id, email, created_at from public.users order by created_at desc limit 5;
+select user_id, budget_tier, activities, companions, priorities, walking_preference, trip_pace
+from public.discovery_profile
+order by created_at desc
+limit 5;
+```
+
+Expected:
+- Signed-in user row exists in `public.users`
+- Onboarding answers are saved in `public.discovery_profile`
+
+
+===== FILE: mobile/.env.example =====
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+ENVIRONMENT=development
+
+
+===== FILE: mobile/analysis_options.yaml =====
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    always_declare_return_types: true
+    prefer_final_locals: true
+
+
+===== FILE: mobile/l10n.yaml =====
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+
+
+===== FILE: mobile/pubspec.yaml =====
+name: locora_mobile
+description: Locora mobile app
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+  supabase_flutter: ^2.5.6
+  flutter_dotenv: ^5.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - .env
+
+
+===== FILE: mobile/lib/main.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/config/router_config.dart';
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/config/theme_config.dart';
+import 'package:locora_mobile/features/settings/presentation/providers.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseConfig.initialize();
+  runApp(const ProviderScope(child: LocoraApp()));
+}
+
+class LocoraApp extends ConsumerWidget {
+  const LocoraApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final router = ref.watch(appRouterProvider);
+
+    return MaterialApp.router(
+      title: 'Locora',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeConfig.light,
+      darkTheme: ThemeConfig.dark,
+      themeMode: themeMode,
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      routerConfig: router,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/config/env.dart =====
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class Env {
+  Env._();
+
+  static Future<void> load() async {
+    await dotenv.load(fileName: '.env');
+  }
+
+  static String get supabaseUrl => _required('SUPABASE_URL');
+  static String get supabaseAnonKey => _required('SUPABASE_ANON_KEY');
+  static String get environment => dotenv.env['ENVIRONMENT'] ?? 'development';
+
+  static String _required(String key) {
+    final value = dotenv.env[key];
+    if (value == null || value.isEmpty) {
+      throw StateError('Missing required env variable: $key');
+    }
+    return value;
+  }
+}
+
+
+===== FILE: mobile/lib/config/router_config.dart =====
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/features/auth/presentation/pages/auth_page.dart';
+import 'package:locora_mobile/features/auth/presentation/pages/launch_gate_page.dart';
+import 'package:locora_mobile/features/auth/presentation/providers.dart';
+import 'package:locora_mobile/features/home/presentation/pages/home_page.dart';
+import 'package:locora_mobile/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:locora_mobile/features/onboarding/presentation/providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AppRouter {
+  AppRouter._();
+
+  static const String launch = '/launch';
+  static const String auth = '/auth';
+  static const String onboarding = '/onboarding';
+  static const String home = '/';
+
+  static GoRouter build(Ref ref) {
+    final refreshListenable = AuthRefreshListenable(
+      ref.watch(authRepositoryProvider).authStateChanges(),
+    );
+
+    ref.onDispose(refreshListenable.dispose);
+
+    return GoRouter(
+      initialLocation: launch,
+      refreshListenable: refreshListenable,
+      redirect: (context, state) async {
+        final session = SupabaseConfig.client.auth.currentSession;
+        final location = state.matchedLocation;
+        final isAtLaunch = location == launch;
+        final isAtAuth = location == auth;
+        final isAtOnboarding = location == onboarding;
+        final isAtHome = location == home;
+
+        if (session == null) {
+          if (isAtAuth) {
+            return null;
+          }
+
+          if (isAtLaunch || isAtOnboarding || isAtHome) {
+            return auth;
+          }
+
+          return auth;
+        }
+
+        final userId = session.user.id;
+        final onboardingCompleted = await ref
+            .read(onboardingCompletedProvider(userId).future);
+
+        if (!onboardingCompleted) {
+          if (isAtOnboarding) {
+            return null;
+          }
+
+          return onboarding;
+        }
+
+        if (isAtLaunch || isAtAuth || isAtOnboarding) {
+          return home;
+        }
+
+        return null;
+      },
+      routes: [
+        GoRoute(
+          path: launch,
+          builder: (context, state) => const LaunchGatePage(),
+        ),
+        GoRoute(
+          path: auth,
+          builder: (context, state) => const AuthPage(),
+        ),
+        GoRoute(
+          path: onboarding,
+          builder: (context, state) => const OnboardingPage(),
+        ),
+        GoRoute(
+          path: home,
+          builder: (context, state) => const HomePage(),
+        ),
+      ],
+    );
+  }
+}
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  return AppRouter.build(ref);
+});
+
+class AuthRefreshListenable extends ChangeNotifier {
+  AuthRefreshListenable(Stream<AuthState> authStateStream) {
+    _subscription = authStateStream.listen((_) {
+      notifyListeners();
+    });
+  }
+
+  late final StreamSubscription<AuthState> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+
+===== FILE: mobile/lib/config/supabase_config.dart =====
+import 'package:locora_mobile/config/env.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class SupabaseConfig {
+  SupabaseConfig._();
+
+  static Future<void> initialize() async {
+    await Env.load();
+
+    await Supabase.initialize(
+      url: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
+    );
+  }
+
+  static SupabaseClient get client => Supabase.instance.client;
+}
+
+
+===== FILE: mobile/lib/config/theme_config.dart =====
+import 'package:locora_mobile/core/theme/app_theme.dart';
+
+class ThemeConfig {
+  ThemeConfig._();
+
+  static const light = AppTheme.light;
+  static const dark = AppTheme.dark;
+}
+
+
+===== FILE: mobile/lib/core/theme/app_theme.dart =====
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  AppTheme._();
+
+  static final ThemeData light = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A8E5F)),
+  );
+
+  static final ThemeData dark = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF1A8E5F),
+      brightness: Brightness.dark,
+    ),
+  );
+}
+
+
+===== FILE: mobile/lib/features/home/presentation/pages/home_page.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:locora_mobile/features/auth/presentation/providers.dart';
+import 'package:locora_mobile/features/home/presentation/providers.dart';
+import 'package:locora_mobile/features/settings/presentation/providers.dart';
+
+class HomePage extends ConsumerWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final status = ref.watch(appStatusProvider);
+    final userId = ref.watch(currentUserIdProvider) ?? '-';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.appTitle),
+        actions: [
+          IconButton(
+            onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+            icon: const Icon(Icons.dark_mode_outlined),
+            tooltip: l10n.toggleTheme,
+          ),
+          PopupMenuButton<Locale>(
+            icon: const Icon(Icons.language_outlined),
+            onSelected: (locale) {
+              ref.read(localeProvider.notifier).setLocale(locale);
+            },
+            itemBuilder: (context) {
+              return const [
+                PopupMenuItem<Locale>(
+                  value: Locale('tr'),
+                  child: Text('TR'),
+                ),
+                PopupMenuItem<Locale>(
+                  value: Locale('en'),
+                  child: Text('EN'),
+                ),
+              ];
+            },
+          ),
+          IconButton(
+            onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+            icon: const Icon(Icons.logout_outlined),
+            tooltip: l10n.signOut,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.emptyHomeTitle),
+              const SizedBox(height: 8),
+              Text('${l10n.statusLabel}: $status'),
+              const SizedBox(height: 8),
+              Text('User: $userId'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/home/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Phase 0 Riverpod sample provider to validate DI/state wiring.
+final appStatusProvider = Provider<String>((ref) {
+  return 'ready';
+});
+
+
+===== FILE: mobile/lib/features/settings/presentation/providers.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>(
+  (ref) => ThemeModeNotifier(),
+);
+
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
+  (ref) => LocaleNotifier(),
+);
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.system);
+
+  void toggle() {
+    if (state == ThemeMode.dark) {
+      state = ThemeMode.light;
+      return;
+    }
+    state = ThemeMode.dark;
+  }
+}
+
+class LocaleNotifier extends StateNotifier<Locale> {
+  LocaleNotifier() : super(const Locale('tr'));
+
+  void setLocale(Locale locale) {
+    state = locale;
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/domain/entities/place.dart =====
+class Place {
+  const Place({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+}
+
+
+===== FILE: mobile/lib/features/places/domain/repositories/places_repository.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+
+abstract class PlacesRepository {
+  Future<List<Place>> getNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  });
+}
+
+
+===== FILE: mobile/lib/features/places/domain/usecases/get_nearby_places.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+
+class GetNearbyPlaces {
+  const GetNearbyPlaces(this._repository);
+
+  final PlacesRepository _repository;
+
+  Future<List<Place>> call({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) {
+    return _repository.getNearbyPlaces(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/models/place_model.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+
+class PlaceModel extends Place {
+  const PlaceModel({
+    required super.id,
+    required super.name,
+    required super.latitude,
+    required super.longitude,
+  });
+
+  factory PlaceModel.fromJson(Map<String, dynamic> json) {
+    return PlaceModel(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/datasources/places_remote_datasource.dart =====
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/features/places/data/models/place_model.dart';
+
+/// Phase 0 placeholder contract.
+///
+/// This interface is intentionally minimal and will be replaced/expanded in Phase 2
+/// when real place discovery behavior is introduced.
+abstract class PlacesRemoteDataSource {
+  Future<List<PlaceModel>> fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  });
+}
+
+class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
+  @override
+  Future<List<PlaceModel>> fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) async {
+    // Phase 0 placeholder call path: keeps repository/usecase wiring testable
+    // without introducing Phase 2 behavior in the mobile app.
+    final response = await SupabaseConfig.client.functions.invoke(
+      'place-provider',
+      body: {
+        'lat': latitude,
+        'lng': longitude,
+        'radius': radiusMeters,
+      },
+    );
+
+    final data = response.data;
+    if (data is! List) {
+      return const [];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(PlaceModel.fromJson)
+        .toList();
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/repositories/places_repository_impl.dart =====
+import 'package:locora_mobile/features/places/data/datasources/places_remote_datasource.dart';
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+
+class PlacesRepositoryImpl implements PlacesRepository {
+  const PlacesRepositoryImpl(this._remoteDataSource);
+
+  final PlacesRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<List<Place>> getNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) {
+    return _remoteDataSource.fetchNearbyPlaces(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/places/data/datasources/places_remote_datasource.dart';
+import 'package:locora_mobile/features/places/data/repositories/places_repository_impl.dart';
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+import 'package:locora_mobile/features/places/domain/usecases/get_nearby_places.dart';
+
+/// Phase 0 placeholder providers.
+///
+/// They exist only to validate Clean Architecture + Riverpod wiring.
+/// Real user-facing places flows start in later phases.
+final placesRemoteDataSourceProvider = Provider<PlacesRemoteDataSource>(
+  (ref) => PlacesRemoteDataSourceImpl(),
+);
+
+final placesRepositoryProvider = Provider<PlacesRepository>(
+  (ref) => PlacesRepositoryImpl(ref.watch(placesRemoteDataSourceProvider)),
+);
+
+final getNearbyPlacesUseCaseProvider = Provider<GetNearbyPlaces>(
+  (ref) => GetNearbyPlaces(ref.watch(placesRepositoryProvider)),
+);
+
+final nearbyPlacesProvider = FutureProvider.family<List<Place>, NearbyPlacesQuery>(
+  (ref, query) {
+    return ref.watch(getNearbyPlacesUseCaseProvider).call(
+          latitude: query.latitude,
+          longitude: query.longitude,
+          radiusMeters: query.radiusMeters,
+        );
+  },
+);
+
+class NearbyPlacesQuery {
+  const NearbyPlacesQuery({
+    required this.latitude,
+    required this.longitude,
+    required this.radiusMeters,
+  });
+
+  final double latitude;
+  final double longitude;
+  final int radiusMeters;
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/entities/app_user.dart =====
+class AppUser {
+  const AppUser({
+    required this.id,
+    required this.email,
+  });
+
+  final String id;
+  final String email;
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/repositories/auth_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+abstract class AuthRepository {
+  Stream<AuthState> authStateChanges();
+
+  String? currentUserId();
+
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<void> signInWithGoogle();
+
+  Future<void> signInWithApple();
+
+  Future<void> signOut();
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/usecases/sign_in_with_apple.dart =====
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+
+class SignInWithApple {
+  const SignInWithApple(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call() {
+    return _repository.signInWithApple();
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/usecases/sign_in_with_email.dart =====
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+
+class SignInWithEmail {
+  const SignInWithEmail(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call({
+    required String email,
+    required String password,
+  }) {
+    return _repository.signInWithEmail(email: email, password: password);
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/usecases/sign_in_with_google.dart =====
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+
+class SignInWithGoogle {
+  const SignInWithGoogle(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call() {
+    return _repository.signInWithGoogle();
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/usecases/sign_out.dart =====
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+
+class SignOut {
+  const SignOut(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call() {
+    return _repository.signOut();
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/domain/usecases/sign_up_with_email.dart =====
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+
+class SignUpWithEmail {
+  const SignUpWithEmail(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call({
+    required String email,
+    required String password,
+  }) {
+    return _repository.signUpWithEmail(email: email, password: password);
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/data/datasources/auth_remote_data_source.dart =====
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+abstract class AuthRemoteDataSource {
+  Stream<AuthState> authStateChanges();
+
+  String? currentUserId();
+
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<void> signInWithGoogle();
+
+  Future<void> signInWithApple();
+
+  Future<void> signOut();
+}
+
+class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
+  @override
+  Stream<AuthState> authStateChanges() {
+    return SupabaseConfig.client.auth.onAuthStateChange;
+  }
+
+  @override
+  String? currentUserId() {
+    return SupabaseConfig.client.auth.currentUser?.id;
+  }
+
+  @override
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    await SupabaseConfig.client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  @override
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    await SupabaseConfig.client.auth.signUp(
+      email: email,
+      password: password,
+    );
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    await SupabaseConfig.client.auth.signInWithOAuth(OAuthProvider.google);
+  }
+
+  @override
+  Future<void> signInWithApple() async {
+    await SupabaseConfig.client.auth.signInWithOAuth(OAuthProvider.apple);
+  }
+
+  @override
+  Future<void> signOut() async {
+    await SupabaseConfig.client.auth.signOut();
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/data/repositories/auth_repository_impl.dart =====
+import 'package:locora_mobile/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AuthRepositoryImpl implements AuthRepository {
+  const AuthRepositoryImpl(this._remoteDataSource);
+
+  final AuthRemoteDataSource _remoteDataSource;
+
+  @override
+  Stream<AuthState> authStateChanges() {
+    return _remoteDataSource.authStateChanges();
+  }
+
+  @override
+  String? currentUserId() {
+    return _remoteDataSource.currentUserId();
+  }
+
+  @override
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _remoteDataSource.signInWithEmail(email: email, password: password);
+  }
+
+  @override
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _remoteDataSource.signUpWithEmail(email: email, password: password);
+  }
+
+  @override
+  Future<void> signInWithGoogle() {
+    return _remoteDataSource.signInWithGoogle();
+  }
+
+  @override
+  Future<void> signInWithApple() {
+    return _remoteDataSource.signInWithApple();
+  }
+
+  @override
+  Future<void> signOut() {
+    return _remoteDataSource.signOut();
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:locora_mobile/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_apple.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_email.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_google.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_out.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_up_with_email.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
+  (ref) => AuthRemoteDataSourceImpl(),
+);
+
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepositoryImpl(ref.watch(authRemoteDataSourceProvider)),
+);
+
+final signInWithEmailUseCaseProvider = Provider<SignInWithEmail>(
+  (ref) => SignInWithEmail(ref.watch(authRepositoryProvider)),
+);
+
+final signUpWithEmailUseCaseProvider = Provider<SignUpWithEmail>(
+  (ref) => SignUpWithEmail(ref.watch(authRepositoryProvider)),
+);
+
+final signInWithGoogleUseCaseProvider = Provider<SignInWithGoogle>(
+  (ref) => SignInWithGoogle(ref.watch(authRepositoryProvider)),
+);
+
+final signInWithAppleUseCaseProvider = Provider<SignInWithApple>(
+  (ref) => SignInWithApple(ref.watch(authRepositoryProvider)),
+);
+
+final signOutUseCaseProvider = Provider<SignOut>(
+  (ref) => SignOut(ref.watch(authRepositoryProvider)),
+);
+
+final authStateChangesProvider = StreamProvider<AuthState>(
+  (ref) => ref.watch(authRepositoryProvider).authStateChanges(),
+);
+
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(authRepositoryProvider).currentUserId(),
+);
+
+final currentUserEmailProvider = Provider<String?>(
+  (ref) => Supabase.instance.client.auth.currentUser?.email,
+);
+
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AsyncValue<void>>(
+  (ref) => AuthController(ref),
+);
+
+class AuthController extends StateNotifier<AsyncValue<void>> {
+  AuthController(this._ref) : super(const AsyncData(null));
+
+  final Ref _ref;
+
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(signInWithEmailUseCaseProvider).call(
+            email: email,
+            password: password,
+          ),
+    );
+  }
+
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(signUpWithEmailUseCaseProvider).call(
+            email: email,
+            password: password,
+          ),
+    );
+  }
+
+  Future<void> signInWithGoogle() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(signInWithGoogleUseCaseProvider).call(),
+    );
+  }
+
+  Future<void> signInWithApple() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(signInWithAppleUseCaseProvider).call(),
+    );
+  }
+
+  Future<void> signOut() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(signOutUseCaseProvider).call(),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/presentation/pages/auth_page.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/auth/presentation/providers.dart';
+
+class AuthPage extends ConsumerStatefulWidget {
+  const AuthPage({super.key});
+
+  @override
+  ConsumerState<AuthPage> createState() => _AuthPageState();
+}
+
+class _AuthPageState extends ConsumerState<AuthPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authControllerProvider);
+
+    ref.listen<AsyncValue<void>>(authControllerProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, stackTrace) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        },
+      );
+    });
+
+    final isLoading = authState.isLoading;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.authTitle)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(labelText: l10n.emailLabel),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return l10n.emailRequired;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(labelText: l10n.passwordLabel),
+                  validator: (value) {
+                    if (value == null || value.length < 6) {
+                      return l10n.passwordMinLength;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) {
+                            return;
+                          }
+                          await ref.read(authControllerProvider.notifier).signInWithEmail(
+                                email: _emailController.text.trim(),
+                                password: _passwordController.text.trim(),
+                              );
+                        },
+                  child: Text(l10n.signInEmail),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) {
+                            return;
+                          }
+                          await ref.read(authControllerProvider.notifier).signUpWithEmail(
+                                email: _emailController.text.trim(),
+                                password: _passwordController.text.trim(),
+                              );
+                        },
+                  child: Text(l10n.signUpEmail),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          await ref.read(authControllerProvider.notifier).signInWithGoogle();
+                        },
+                  icon: const Icon(Icons.g_mobiledata),
+                  label: Text(l10n.signInGoogle),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          await ref.read(authControllerProvider.notifier).signInWithApple();
+                        },
+                  icon: const Icon(Icons.apple),
+                  label: Text(l10n.signInApple),
+                ),
+                if (isLoading) ...[
+                  const SizedBox(height: 16),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/auth/presentation/pages/launch_gate_page.dart =====
+import 'package:flutter/material.dart';
+
+class LaunchGatePage extends StatelessWidget {
+  const LaunchGatePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: SafeArea(
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/domain/entities/discovery_profile.dart =====
+class DiscoveryProfile {
+  const DiscoveryProfile({
+    required this.activities,
+    required this.budgetTier,
+    required this.companions,
+    required this.priorities,
+    required this.walkingPreference,
+    required this.tripPace,
+  });
+
+  final List<String> activities;
+  final String budgetTier;
+  final List<String> companions;
+  final List<String> priorities;
+  final String walkingPreference;
+  final String tripPace;
+}
+
+
+===== FILE: mobile/lib/features/onboarding/domain/repositories/discovery_profile_repository.dart =====
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+
+abstract class DiscoveryProfileRepository {
+  Future<bool> hasCompletedOnboarding(String userId);
+
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfile profile,
+  });
+}
+
+
+===== FILE: mobile/lib/features/onboarding/domain/usecases/get_onboarding_status.dart =====
+import 'package:locora_mobile/features/onboarding/domain/repositories/discovery_profile_repository.dart';
+
+class GetOnboardingStatus {
+  const GetOnboardingStatus(this._repository);
+
+  final DiscoveryProfileRepository _repository;
+
+  Future<bool> call(String userId) {
+    return _repository.hasCompletedOnboarding(userId);
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/domain/usecases/save_discovery_profile.dart =====
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+import 'package:locora_mobile/features/onboarding/domain/repositories/discovery_profile_repository.dart';
+
+class SaveDiscoveryProfile {
+  const SaveDiscoveryProfile(this._repository);
+
+  final DiscoveryProfileRepository _repository;
+
+  Future<void> call({
+    required String userId,
+    required String email,
+    required DiscoveryProfile profile,
+  }) {
+    return _repository.saveProfile(
+      userId: userId,
+      email: email,
+      profile: profile,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/data/models/discovery_profile_model.dart =====
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+
+class DiscoveryProfileModel extends DiscoveryProfile {
+  const DiscoveryProfileModel({
+    required super.activities,
+    required super.budgetTier,
+    required super.companions,
+    required super.priorities,
+    required super.walkingPreference,
+    required super.tripPace,
+  });
+
+  Map<String, dynamic> toJson(String userId) {
+    return {
+      'user_id': userId,
+      'activities': activities,
+      'budget_tier': budgetTier,
+      'companions': companions,
+      'priorities': priorities,
+      'walking_preference': walkingPreference,
+      'trip_pace': tripPace,
+    };
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/data/datasources/discovery_profile_remote_data_source.dart =====
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/features/onboarding/data/models/discovery_profile_model.dart';
+
+abstract class DiscoveryProfileRemoteDataSource {
+  Future<bool> hasCompletedOnboarding(String userId);
+
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfileModel profile,
+  });
+}
+
+class DiscoveryProfileRemoteDataSourceImpl
+    implements DiscoveryProfileRemoteDataSource {
+  @override
+  Future<bool> hasCompletedOnboarding(String userId) async {
+    final response = await SupabaseConfig.client
+        .from('discovery_profile')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    return response != null;
+  }
+
+  @override
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfileModel profile,
+  }) async {
+    await SupabaseConfig.client.from('users').upsert({
+      'id': userId,
+      'email': email,
+    });
+
+    await SupabaseConfig.client
+        .from('discovery_profile')
+        .upsert(profile.toJson(userId), onConflict: 'user_id');
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/data/repositories/discovery_profile_repository_impl.dart =====
+import 'package:locora_mobile/features/onboarding/data/datasources/discovery_profile_remote_data_source.dart';
+import 'package:locora_mobile/features/onboarding/data/models/discovery_profile_model.dart';
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+import 'package:locora_mobile/features/onboarding/domain/repositories/discovery_profile_repository.dart';
+
+class DiscoveryProfileRepositoryImpl implements DiscoveryProfileRepository {
+  const DiscoveryProfileRepositoryImpl(this._remoteDataSource);
+
+  final DiscoveryProfileRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<bool> hasCompletedOnboarding(String userId) {
+    return _remoteDataSource.hasCompletedOnboarding(userId);
+  }
+
+  @override
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfile profile,
+  }) {
+    final model = DiscoveryProfileModel(
+      activities: profile.activities,
+      budgetTier: profile.budgetTier,
+      companions: profile.companions,
+      priorities: profile.priorities,
+      walkingPreference: profile.walkingPreference,
+      tripPace: profile.tripPace,
+    );
+
+    return _remoteDataSource.saveProfile(
+      userId: userId,
+      email: email,
+      profile: model,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/auth/presentation/providers.dart';
+import 'package:locora_mobile/features/onboarding/data/datasources/discovery_profile_remote_data_source.dart';
+import 'package:locora_mobile/features/onboarding/data/repositories/discovery_profile_repository_impl.dart';
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+import 'package:locora_mobile/features/onboarding/domain/repositories/discovery_profile_repository.dart';
+import 'package:locora_mobile/features/onboarding/domain/usecases/get_onboarding_status.dart';
+import 'package:locora_mobile/features/onboarding/domain/usecases/save_discovery_profile.dart';
+
+final discoveryProfileRemoteDataSourceProvider =
+    Provider<DiscoveryProfileRemoteDataSource>(
+  (ref) => DiscoveryProfileRemoteDataSourceImpl(),
+);
+
+final discoveryProfileRepositoryProvider = Provider<DiscoveryProfileRepository>(
+  (ref) => DiscoveryProfileRepositoryImpl(
+    ref.watch(discoveryProfileRemoteDataSourceProvider),
+  ),
+);
+
+final getOnboardingStatusUseCaseProvider = Provider<GetOnboardingStatus>(
+  (ref) => GetOnboardingStatus(ref.watch(discoveryProfileRepositoryProvider)),
+);
+
+final saveDiscoveryProfileUseCaseProvider = Provider<SaveDiscoveryProfile>(
+  (ref) => SaveDiscoveryProfile(ref.watch(discoveryProfileRepositoryProvider)),
+);
+
+final onboardingCompletedProvider = FutureProvider.family<bool, String>(
+  (ref, userId) => ref.watch(getOnboardingStatusUseCaseProvider).call(userId),
+);
+
+final onboardingControllerProvider =
+    StateNotifierProvider<OnboardingController, AsyncValue<void>>(
+  (ref) => OnboardingController(ref),
+);
+
+class OnboardingController extends StateNotifier<AsyncValue<void>> {
+  OnboardingController(this._ref) : super(const AsyncData(null));
+
+  final Ref _ref;
+
+  Future<void> saveProfile(DiscoveryProfile profile) async {
+    final userId = _ref.read(currentUserIdProvider);
+    final email = _ref.read(currentUserEmailProvider);
+
+    if (userId == null || email == null || email.isEmpty) {
+      state = AsyncError(
+        StateError('User session is not available.'),
+        StackTrace.current,
+      );
+      return;
+    }
+
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => _ref.read(saveDiscoveryProfileUseCaseProvider).call(
+            userId: userId,
+            email: email,
+            profile: profile,
+          ),
+    );
+
+    _ref.invalidate(onboardingCompletedProvider(userId));
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/presentation/pages/onboarding_page.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+import 'package:locora_mobile/features/onboarding/presentation/providers.dart';
+import 'package:locora_mobile/features/onboarding/presentation/widgets/question_card.dart';
+
+class OnboardingPage extends ConsumerStatefulWidget {
+  const OnboardingPage({super.key});
+
+  @override
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
+  final Set<String> _activities = {};
+  String _budgetTier = 'medium';
+  final Set<String> _companions = {};
+  final Set<String> _priorities = {};
+  String _walkingPreference = 'moderate';
+  String _tripPace = 'balanced';
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final controllerState = ref.watch(onboardingControllerProvider);
+
+    ref.listen<AsyncValue<void>>(onboardingControllerProvider, (previous, next) {
+      next.whenOrNull(
+        data: (_) {
+          context.go('/');
+        },
+        error: (error, stackTrace) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.toString())),
+          );
+        },
+      );
+    });
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.onboardingTitle)),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            QuestionCard(
+              title: l10n.onboardingActivities,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _activityOptions(l10n).map((option) {
+                  final selected = _activities.contains(option);
+                  return FilterChip(
+                    label: Text(option),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _activities.add(option);
+                        } else {
+                          _activities.remove(option);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            QuestionCard(
+              title: l10n.onboardingBudget,
+              child: SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(value: 'low', label: Text(l10n.budgetLow)),
+                  ButtonSegment(value: 'medium', label: Text(l10n.budgetMedium)),
+                  ButtonSegment(value: 'high', label: Text(l10n.budgetHigh)),
+                ],
+                selected: {_budgetTier},
+                onSelectionChanged: (value) {
+                  setState(() {
+                    _budgetTier = value.first;
+                  });
+                },
+              ),
+            ),
+            QuestionCard(
+              title: l10n.onboardingCompanions,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _companionOptions(l10n).map((option) {
+                  final selected = _companions.contains(option);
+                  return FilterChip(
+                    label: Text(option),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _companions.add(option);
+                        } else {
+                          _companions.remove(option);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            QuestionCard(
+              title: l10n.onboardingPriorities,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _priorityOptions(l10n).map((option) {
+                  final selected = _priorities.contains(option);
+                  return FilterChip(
+                    label: Text(option),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _priorities.add(option);
+                        } else {
+                          _priorities.remove(option);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            QuestionCard(
+              title: l10n.onboardingWalking,
+              child: DropdownButtonFormField<String>(
+                initialValue: _walkingPreference,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: [
+                  DropdownMenuItem(
+                    value: 'short',
+                    child: Text(l10n.walkingShort),
+                  ),
+                  DropdownMenuItem(
+                    value: 'moderate',
+                    child: Text(l10n.walkingModerate),
+                  ),
+                  DropdownMenuItem(
+                    value: 'long',
+                    child: Text(l10n.walkingLong),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _walkingPreference = value;
+                  });
+                },
+              ),
+            ),
+            QuestionCard(
+              title: l10n.onboardingPace,
+              child: DropdownButtonFormField<String>(
+                initialValue: _tripPace,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: [
+                  DropdownMenuItem(value: 'slow', child: Text(l10n.paceSlow)),
+                  DropdownMenuItem(
+                    value: 'balanced',
+                    child: Text(l10n.paceBalanced),
+                  ),
+                  DropdownMenuItem(value: 'fast', child: Text(l10n.paceFast)),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _tripPace = value;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: controllerState.isLoading
+                  ? null
+                  : () async {
+                      final profile = DiscoveryProfile(
+                        activities: _activities.toList(),
+                        budgetTier: _budgetTier,
+                        companions: _companions.toList(),
+                        priorities: _priorities.toList(),
+                        walkingPreference: _walkingPreference,
+                        tripPace: _tripPace,
+                      );
+                      await ref
+                          .read(onboardingControllerProvider.notifier)
+                          .saveProfile(profile);
+                    },
+              child: Text(l10n.completeOnboarding),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<String> _activityOptions(AppLocalizations l10n) {
+    return [
+      l10n.activityFood,
+      l10n.activityCulture,
+      l10n.activityNature,
+      l10n.activityNightlife,
+      l10n.activityShopping,
+      l10n.activityFamily,
+    ];
+  }
+
+  List<String> _companionOptions(AppLocalizations l10n) {
+    return [
+      l10n.companionSolo,
+      l10n.companionPartner,
+      l10n.companionFriends,
+      l10n.companionFamily,
+    ];
+  }
+
+  List<String> _priorityOptions(AppLocalizations l10n) {
+    return [
+      l10n.priorityBudget,
+      l10n.priorityDistance,
+      l10n.priorityPopularity,
+      l10n.priorityHiddenGems,
+    ];
+  }
+}
+
+
+===== FILE: mobile/lib/features/onboarding/presentation/widgets/question_card.dart =====
+import 'package:flutter/material.dart';
+
+class QuestionCard extends StatelessWidget {
+  const QuestionCard({
+    required this.title,
+    required this.child,
+    super.key,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/l10n/app_en.arb =====
+{
+  "@@locale": "en",
+  "appTitle": "Locora",
+  "emptyHomeTitle": "Home is ready",
+  "statusLabel": "Status",
+  "toggleTheme": "Toggle theme",
+  "authTitle": "Sign in to Locora",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "emailRequired": "Email is required",
+  "passwordMinLength": "Password must be at least 6 characters",
+  "signInEmail": "Sign in with email",
+  "signUpEmail": "Create account",
+  "signInGoogle": "Continue with Google",
+  "signInApple": "Continue with Apple",
+  "signOut": "Sign out",
+  "onboardingTitle": "Discovery profile",
+  "onboardingActivities": "What do you enjoy most?",
+  "onboardingBudget": "What is your budget style?",
+  "onboardingCompanions": "Who do you usually go out with?",
+  "onboardingPriorities": "What matters most when picking places?",
+  "onboardingWalking": "Walking preference",
+  "onboardingPace": "Trip pace",
+  "completeOnboarding": "Save discovery profile",
+  "budgetLow": "Budget",
+  "budgetMedium": "Balanced",
+  "budgetHigh": "Premium",
+  "walkingShort": "Short walks",
+  "walkingModerate": "Moderate",
+  "walkingLong": "Long walks",
+  "paceSlow": "Slow",
+  "paceBalanced": "Balanced",
+  "paceFast": "Fast",
+  "activityFood": "Food",
+  "activityCulture": "Culture",
+  "activityNature": "Nature",
+  "activityNightlife": "Nightlife",
+  "activityShopping": "Shopping",
+  "activityFamily": "Family",
+  "companionSolo": "Solo",
+  "companionPartner": "Partner",
+  "companionFriends": "Friends",
+  "companionFamily": "Family",
+  "priorityBudget": "Budget fit",
+  "priorityDistance": "Close distance",
+  "priorityPopularity": "Top rated",
+  "priorityHiddenGems": "Hidden gems"
+}
+
+
+===== FILE: mobile/lib/l10n/app_tr.arb =====
+{
+  "@@locale": "tr",
+  "appTitle": "Locora",
+  "emptyHomeTitle": "Ana ekran hazir",
+  "statusLabel": "Durum",
+  "toggleTheme": "Temayi degistir",
+  "authTitle": "Locora girisi",
+  "emailLabel": "E-posta",
+  "passwordLabel": "Sifre",
+  "emailRequired": "E-posta gerekli",
+  "passwordMinLength": "Sifre en az 6 karakter olmali",
+  "signInEmail": "E-posta ile giris",
+  "signUpEmail": "Hesap olustur",
+  "signInGoogle": "Google ile devam et",
+  "signInApple": "Apple ile devam et",
+  "signOut": "Cikis yap",
+  "onboardingTitle": "Kesif profili",
+  "onboardingActivities": "En cok nelerden hoslanirsin?",
+  "onboardingBudget": "Butce tarzin nedir?",
+  "onboardingCompanions": "Genelde kimlerle geziyorsun?",
+  "onboardingPriorities": "Yer secerken en onemli kriterlerin neler?",
+  "onboardingWalking": "Yurume tercihi",
+  "onboardingPace": "Gezi hizi",
+  "completeOnboarding": "Kesif profilini kaydet",
+  "budgetLow": "Ekonomik",
+  "budgetMedium": "Dengeli",
+  "budgetHigh": "Premium",
+  "walkingShort": "Kisa yuruyus",
+  "walkingModerate": "Orta",
+  "walkingLong": "Uzun yuruyus",
+  "paceSlow": "Sakin",
+  "paceBalanced": "Dengeli",
+  "paceFast": "Hizli",
+  "activityFood": "Yeme-Icme",
+  "activityCulture": "Kultur",
+  "activityNature": "Doga",
+  "activityNightlife": "Gece Hayati",
+  "activityShopping": "Alisveris",
+  "activityFamily": "Aile Etkinlikleri",
+  "companionSolo": "Tek basima",
+  "companionPartner": "Partnerimle",
+  "companionFriends": "Arkadaslarimla",
+  "companionFamily": "Ailemle",
+  "priorityBudget": "Butce uyumu",
+  "priorityDistance": "Yakinlik",
+  "priorityPopularity": "Yuksek puan",
+  "priorityHiddenGems": "Sakli cevherler"
+}
+
+
+===== FILE: mobile/test/app_widget_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:locora_mobile/config/router_config.dart';
+import 'package:locora_mobile/main.dart';
+
+void main() {
+  testWidgets('Locora app renders widget tree smoke test', (tester) async {
+    final testRouter = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(
+            body: Center(child: Text('SMOKE_OK')),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appRouterProvider.overrideWithValue(testRouter)],
+        child: const LocoraApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('SMOKE_OK'), findsOneWidget);
+  });
+}
+
+
+===== FILE: mobile/test/features/auth/auth_repository_impl_test.dart =====
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:locora_mobile/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:locora_mobile/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
+  String? email;
+  String? password;
+  bool googleCalled = false;
+  bool appleCalled = false;
+  bool signOutCalled = false;
+  final _controller = StreamController<AuthState>.broadcast();
+
+  @override
+  Stream<AuthState> authStateChanges() => _controller.stream;
+
+  @override
+  String? currentUserId() => 'user-1';
+
+  @override
+  Future<void> signInWithApple() async {
+    appleCalled = true;
+  }
+
+  @override
+  Future<void> signInWithEmail({required String email, required String password}) async {
+    this.email = email;
+    this.password = password;
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    googleCalled = true;
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCalled = true;
+  }
+
+  @override
+  Future<void> signUpWithEmail({required String email, required String password}) async {
+    this.email = email;
+    this.password = password;
+  }
+}
+
+void main() {
+  test('auth repository forwards authentication calls', () async {
+    final remote = FakeAuthRemoteDataSource();
+    final repository = AuthRepositoryImpl(remote);
+
+    await repository.signInWithEmail(email: 'user@example.com', password: 'secret12');
+    await repository.signUpWithEmail(email: 'user@example.com', password: 'secret12');
+    await repository.signInWithGoogle();
+    await repository.signInWithApple();
+    await repository.signOut();
+
+    expect(remote.email, 'user@example.com');
+    expect(remote.password, 'secret12');
+    expect(remote.googleCalled, isTrue);
+    expect(remote.appleCalled, isTrue);
+    expect(remote.signOutCalled, isTrue);
+    expect(repository.currentUserId(), 'user-1');
+  });
+}
+
+
+===== FILE: mobile/test/features/auth/auth_usecases_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+import 'package:locora_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_apple.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_email.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_in_with_google.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_out.dart';
+import 'package:locora_mobile/features/auth/domain/usecases/sign_up_with_email.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class FakeAuthRepository implements AuthRepository {
+  String? email;
+  String? password;
+  bool googleCalled = false;
+  bool appleCalled = false;
+  bool signOutCalled = false;
+
+  @override
+  Stream<AuthState> authStateChanges() => const Stream.empty();
+
+  @override
+  String? currentUserId() => 'user-1';
+
+  @override
+  Future<void> signInWithApple() async {
+    appleCalled = true;
+  }
+
+  @override
+  Future<void> signInWithEmail({required String email, required String password}) async {
+    this.email = email;
+    this.password = password;
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    googleCalled = true;
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOutCalled = true;
+  }
+
+  @override
+  Future<void> signUpWithEmail({required String email, required String password}) async {
+    this.email = email;
+    this.password = password;
+  }
+}
+
+void main() {
+  test('email sign in usecase delegates to repository', () async {
+    final repository = FakeAuthRepository();
+    final useCase = SignInWithEmail(repository);
+
+    await useCase(email: 'user@example.com', password: 'secret12');
+
+    expect(repository.email, 'user@example.com');
+    expect(repository.password, 'secret12');
+  });
+
+  test('email sign up usecase delegates to repository', () async {
+    final repository = FakeAuthRepository();
+    final useCase = SignUpWithEmail(repository);
+
+    await useCase(email: 'user@example.com', password: 'secret12');
+
+    expect(repository.email, 'user@example.com');
+    expect(repository.password, 'secret12');
+  });
+
+  test('oauth and sign out usecases delegate to repository', () async {
+    final repository = FakeAuthRepository();
+
+    await SignInWithGoogle(repository).call();
+    await SignInWithApple(repository).call();
+    await SignOut(repository).call();
+
+    expect(repository.googleCalled, isTrue);
+    expect(repository.appleCalled, isTrue);
+    expect(repository.signOutCalled, isTrue);
+  });
+}
+
+
+===== FILE: mobile/test/features/onboarding/discovery_profile_repository_impl_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+import 'package:locora_mobile/features/onboarding/data/datasources/discovery_profile_remote_data_source.dart';
+import 'package:locora_mobile/features/onboarding/data/models/discovery_profile_model.dart';
+import 'package:locora_mobile/features/onboarding/data/repositories/discovery_profile_repository_impl.dart';
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+
+class FakeDiscoveryProfileRemoteDataSource
+    implements DiscoveryProfileRemoteDataSource {
+  bool completed = false;
+  String? savedUserId;
+  String? savedEmail;
+  DiscoveryProfileModel? savedProfile;
+
+  @override
+  Future<bool> hasCompletedOnboarding(String userId) async => completed;
+
+  @override
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfileModel profile,
+  }) async {
+    savedUserId = userId;
+    savedEmail = email;
+    savedProfile = profile;
+  }
+}
+
+void main() {
+  test('discovery profile repository checks status and saves profile', () async {
+    final remote = FakeDiscoveryProfileRemoteDataSource();
+    final repository = DiscoveryProfileRepositoryImpl(remote);
+
+    expect(await repository.hasCompletedOnboarding('user-1'), isFalse);
+
+    await repository.saveProfile(
+      userId: 'user-1',
+      email: 'user@example.com',
+      profile: const DiscoveryProfile(
+        activities: ['food'],
+        budgetTier: 'medium',
+        companions: ['friends'],
+        priorities: ['budget'],
+        walkingPreference: 'moderate',
+        tripPace: 'balanced',
+      ),
+    );
+
+    expect(remote.savedUserId, 'user-1');
+    expect(remote.savedEmail, 'user@example.com');
+    expect(remote.savedProfile, isNotNull);
+  });
+}
+
+
+===== FILE: mobile/test/features/onboarding/onboarding_usecases_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
+import 'package:locora_mobile/features/onboarding/domain/repositories/discovery_profile_repository.dart';
+import 'package:locora_mobile/features/onboarding/domain/usecases/get_onboarding_status.dart';
+import 'package:locora_mobile/features/onboarding/domain/usecases/save_discovery_profile.dart';
+
+class FakeDiscoveryProfileRepository implements DiscoveryProfileRepository {
+  bool completed = false;
+  DiscoveryProfile? savedProfile;
+  String? savedUserId;
+  String? savedEmail;
+
+  @override
+  Future<bool> hasCompletedOnboarding(String userId) async => completed;
+
+  @override
+  Future<void> saveProfile({
+    required String userId,
+    required String email,
+    required DiscoveryProfile profile,
+  }) async {
+    savedUserId = userId;
+    savedEmail = email;
+    savedProfile = profile;
+    completed = true;
+  }
+}
+
+void main() {
+  test('get onboarding status reads repository', () async {
+    final repository = FakeDiscoveryProfileRepository()..completed = true;
+    final useCase = GetOnboardingStatus(repository);
+
+    expect(await useCase('user-1'), isTrue);
+  });
+
+  test('save discovery profile writes repository data', () async {
+    final repository = FakeDiscoveryProfileRepository();
+    final useCase = SaveDiscoveryProfile(repository);
+
+    await useCase(
+      userId: 'user-1',
+      email: 'user@example.com',
+      profile: const DiscoveryProfile(
+        activities: ['food', 'culture'],
+        budgetTier: 'medium',
+        companions: ['friends'],
+        priorities: ['budget'],
+        walkingPreference: 'moderate',
+        tripPace: 'balanced',
+      ),
+    );
+
+    expect(repository.savedUserId, 'user-1');
+    expect(repository.savedEmail, 'user@example.com');
+    expect(repository.completed, isTrue);
+  });
+}
+
+
+===== FILE: mobile/test/features/places/places_repository_and_usecase_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+import 'package:locora_mobile/features/places/data/datasources/places_remote_datasource.dart';
+import 'package:locora_mobile/features/places/data/models/place_model.dart';
+import 'package:locora_mobile/features/places/data/repositories/places_repository_impl.dart';
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+import 'package:locora_mobile/features/places/domain/usecases/get_nearby_places.dart';
+
+class FakePlacesRemoteDataSource implements PlacesRemoteDataSource {
+  List<PlaceModel> response = const [];
+  double? latitude;
+  double? longitude;
+  int? radiusMeters;
+
+  @override
+  Future<List<PlaceModel>> fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) async {
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.radiusMeters = radiusMeters;
+    return response;
+  }
+}
+
+class FakePlacesRepository implements PlacesRepository {
+  List<Place> result = const [];
+  double? latitude;
+  double? longitude;
+  int? radiusMeters;
+
+  @override
+  Future<List<Place>> getNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) async {
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.radiusMeters = radiusMeters;
+    return result;
+  }
+}
+
+void main() {
+  test('places repository forwards remote results', () async {
+    final remote = FakePlacesRemoteDataSource()
+      ..response = const [
+        PlaceModel(id: '1', name: 'Cafe', latitude: 41.0, longitude: 29.0),
+      ];
+    final repository = PlacesRepositoryImpl(remote);
+
+    final places = await repository.getNearbyPlaces(
+      latitude: 41.0,
+      longitude: 29.0,
+      radiusMeters: 1000,
+    );
+
+    expect(places, hasLength(1));
+    expect(places.first.name, 'Cafe');
+    expect(remote.radiusMeters, 1000);
+  });
+
+  test('get nearby places usecase forwards query', () async {
+    final repository = FakePlacesRepository();
+    final useCase = GetNearbyPlaces(repository);
+
+    await useCase(
+      latitude: 41.0,
+      longitude: 29.0,
+      radiusMeters: 500,
+    );
+
+    expect(repository.latitude, 41.0);
+    expect(repository.longitude, 29.0);
+    expect(repository.radiusMeters, 500);
+  });
+}
+
+
+===== FILE: supabase/.env.example =====
+SUPABASE_PROJECT_ID=your-project-id
+SUPABASE_PROJECT_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+GOOGLE_PLACES_API_KEY=your-google-places-key
+
+
+===== FILE: supabase/migrations/202607060001_enable_postgis.sql =====
+create extension if not exists postgis;
+
+
+===== FILE: supabase/migrations/202607060002_auth_and_discovery_profile.sql =====
+create table if not exists public.users (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null unique,
+  full_name text,
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.discovery_profile (
+  user_id uuid primary key references public.users(id) on delete cascade,
+  activities text[] not null default '{}',
+  budget_tier text not null default 'medium',
+  companions text[] not null default '{}',
+  priorities text[] not null default '{}',
+  walking_preference text not null default 'moderate',
+  trip_pace text not null default 'balanced',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.users enable row level security;
+alter table public.discovery_profile enable row level security;
+
+create policy "users_select_own"
+  on public.users for select
+  using (auth.uid() = id);
+
+create policy "users_insert_own"
+  on public.users for insert
+  with check (auth.uid() = id);
+
+create policy "users_update_own"
+  on public.users for update
+  using (auth.uid() = id);
+
+create policy "users_delete_own"
+  on public.users for delete
+  using (auth.uid() = id);
+
+create policy "discovery_profile_select_own"
+  on public.discovery_profile for select
+  using (auth.uid() = user_id);
+
+create policy "discovery_profile_insert_own"
+  on public.discovery_profile for insert
+  with check (auth.uid() = user_id);
+
+create policy "discovery_profile_update_own"
+  on public.discovery_profile for update
+  using (auth.uid() = user_id);
+
+create policy "discovery_profile_delete_own"
+  on public.discovery_profile for delete
+  using (auth.uid() = user_id);
+
+create or replace function public.handle_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger users_set_updated_at
+before update on public.users
+for each row
+execute function public.handle_updated_at();
+
+create trigger discovery_profile_set_updated_at
+before update on public.discovery_profile
+for each row
+execute function public.handle_updated_at();
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.users (id, email, full_name, avatar_url)
+  values (
+    new.id,
+    coalesce(new.email, ''),
+    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+    new.raw_user_meta_data ->> 'avatar_url'
+  )
+  on conflict (id) do update
+    set email = excluded.email,
+        full_name = excluded.full_name,
+        avatar_url = excluded.avatar_url;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row
+execute function public.handle_new_auth_user();
+
+
+===== FILE: supabase/functions/tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["**/*.ts", "**/*.d.ts"]
+}
+
+
+===== FILE: supabase/functions/deno.d.ts =====
+declare namespace Deno {
+  function serve(
+    handler: (request: Request) => Response | Promise<Response>,
+  ): void;
+}
+
+
+===== FILE: supabase/functions/ai-tagging/index.ts =====
+// Supabase Edge Function: ai-tagging
+
+// @ts-ignore Deno global is provided by Supabase Edge Runtime.
+Deno.serve(async (_req: Request): Promise<Response> => {
+  return new Response(JSON.stringify({ status: 'ok' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+
+===== FILE: supabase/functions/place-provider/index.ts =====
+// Supabase Edge Function: place-provider
+// Proxies external place APIs. Keep API keys only in function secrets.
+
+// @ts-ignore Deno global is provided by Supabase Edge Runtime.
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const payload = await req.json().catch(() => null);
+  if (!payload) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const lat = Number(payload.lat);
+  const lng = Number(payload.lng);
+  const radius = Number(payload.radius ?? 1000);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return new Response(JSON.stringify({ error: 'lat and lng are required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Placeholder response for Phase 0. Real provider integration starts in later phases.
+  const sample = [
+    {
+      id: 'sample-1',
+      name: 'Sample Place',
+      latitude: lat,
+      longitude: lng,
+      radius,
+    },
+  ];
+
+  return new Response(JSON.stringify(sample), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+

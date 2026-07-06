@@ -1,0 +1,837 @@
+===== FILE: .gitignore =====
+# Flutter/Dart
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.metadata
+**/build/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/android/.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# Environment files
+mobile/.env
+supabase/.env
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+
+===== FILE: README.md =====
+# Locora
+
+Locora is a location-based, AI-assisted discovery and planning app.
+
+This repository is organized as a monorepo:
+- `mobile/`: Flutter client app
+- `supabase/`: Postgres migrations and Edge Functions
+- `docs/`: architecture and setup documents
+
+## Phase 0 Status
+
+Phase 0 establishes:
+- Flutter + Supabase project skeleton
+- Feature-first Clean Architecture folders
+- Riverpod DI and state management foundations
+- Material 3 + dark mode toggle
+- TR/EN localization base
+- Environment-based secret handling
+
+## Quick Setup
+
+1. Install Flutter stable and Dart.
+2. Configure `mobile/.env` from `mobile/.env.example`.
+3. Configure `supabase/.env` from `supabase/.env.example`.
+4. Run Flutter app from `mobile/`.
+
+See `docs/SETUP.md` for details.
+
+
+===== FILE: ROADMAP.md =====
+# Locora Roadmap
+
+## Phase 0 - Infrastructure and Standards
+
+Completion criteria:
+- App launches and shows an empty home screen
+- Supabase client is initialized using env variables
+- Feature-first + Clean Architecture folder structure exists
+- Riverpod providers are wired
+- Dark mode can be toggled
+- No secret is hardcoded in source files
+
+## Phase 1+
+
+Future phases should start only after Phase 0 completion criteria are validated.
+
+
+===== FILE: docs/API.md =====
+# API
+
+## Edge Functions
+
+### place-provider
+- Method: `POST`
+- Body:
+  - `lat` (number)
+  - `lng` (number)
+  - `radius` (number, optional)
+- Purpose: proxy place discovery requests to provider APIs
+
+### ai-tagging
+- Method: `POST`
+- Purpose: classify/summarize place metadata (Phase 0: placeholder)
+
+
+===== FILE: docs/ARCHITECTURE.md =====
+# Architecture
+
+Locora follows:
+- Feature-first organization
+- Clean Architecture layers inside each feature
+- Riverpod for DI and state management
+- Repository Pattern between presentation and data layers
+
+## Example Feature Layout
+
+```
+features/places/
+  presentation/
+  domain/
+  data/
+```
+
+## Secret Handling
+
+- Mobile app reads only public Supabase URL/anon key from env.
+- External API keys are never shipped to client.
+- Third-party APIs are proxied through Supabase Edge Functions.
+
+
+===== FILE: docs/LOCALIZATION.md =====
+# Localization
+
+Current locales:
+- Turkish (`tr`)
+- English (`en`)
+
+## Add a New Locale
+
+1. Add `mobile/lib/l10n/{code}.json`
+2. Register locale in `AppLocalizations.supportedLocales`
+3. Done
+
+
+===== FILE: docs/SETUP.md =====
+# Setup
+
+## Prerequisites
+
+- Flutter stable
+- Dart SDK (bundled with Flutter)
+- Supabase CLI (optional for local backend workflow)
+
+## Mobile
+
+1. Copy `mobile/.env.example` to `mobile/.env`
+2. Fill values:
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+3. Run:
+
+```bash
+cd mobile
+flutter pub get
+flutter run
+```
+
+## Supabase
+
+1. Copy `supabase/.env.example` to `supabase/.env`
+2. Add required secrets
+3. Deploy functions with Supabase CLI when ready
+
+
+===== FILE: mobile/.env.example =====
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+ENVIRONMENT=development
+
+
+===== FILE: mobile/analysis_options.yaml =====
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    always_declare_return_types: true
+    prefer_final_locals: true
+
+
+===== FILE: mobile/pubspec.yaml =====
+name: locora_mobile
+description: Locora mobile app
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  supabase_flutter: ^2.5.6
+  flutter_dotenv: ^5.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - lib/l10n/en.json
+    - lib/l10n/tr.json
+
+
+===== FILE: mobile/lib/main.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/config/router_config.dart';
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/config/theme_config.dart';
+import 'package:locora_mobile/features/settings/presentation/providers.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseConfig.initialize();
+  runApp(const ProviderScope(child: LocoraApp()));
+}
+
+class LocoraApp extends ConsumerWidget {
+  const LocoraApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+
+    return MaterialApp(
+      title: 'Locora',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeConfig.light,
+      darkTheme: ThemeConfig.dark,
+      themeMode: themeMode,
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      onGenerateRoute: AppRouter.onGenerateRoute,
+      initialRoute: AppRouter.home,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/config/env.dart =====
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class Env {
+  Env._();
+
+  static Future<void> load() async {
+    await dotenv.load(fileName: '.env');
+  }
+
+  static String get supabaseUrl => _required('SUPABASE_URL');
+  static String get supabaseAnonKey => _required('SUPABASE_ANON_KEY');
+  static String get environment => dotenv.env['ENVIRONMENT'] ?? 'development';
+
+  static String _required(String key) {
+    final value = dotenv.env[key];
+    if (value == null || value.isEmpty) {
+      throw StateError('Missing required env variable: $key');
+    }
+    return value;
+  }
+}
+
+
+===== FILE: mobile/lib/config/router_config.dart =====
+import 'package:flutter/material.dart';
+import 'package:locora_mobile/features/home/presentation/pages/home_page.dart';
+
+class AppRouter {
+  AppRouter._();
+
+  static const String home = '/';
+
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case home:
+        return MaterialPageRoute<void>(builder: (_) => const HomePage());
+      default:
+        return MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(
+            body: Center(child: Text('Route not found')),
+          ),
+        );
+    }
+  }
+}
+
+
+===== FILE: mobile/lib/config/supabase_config.dart =====
+import 'package:locora_mobile/config/env.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class SupabaseConfig {
+  SupabaseConfig._();
+
+  static Future<void> initialize() async {
+    await Env.load();
+
+    await Supabase.initialize(
+      url: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
+    );
+  }
+
+  static SupabaseClient get client => Supabase.instance.client;
+}
+
+
+===== FILE: mobile/lib/config/theme_config.dart =====
+import 'package:locora_mobile/core/theme/app_theme.dart';
+
+class ThemeConfig {
+  ThemeConfig._();
+
+  static const light = AppTheme.light;
+  static const dark = AppTheme.dark;
+}
+
+
+===== FILE: mobile/lib/core/theme/app_theme.dart =====
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  AppTheme._();
+
+  static final ThemeData light = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A8E5F)),
+  );
+
+  static final ThemeData dark = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF1A8E5F),
+      brightness: Brightness.dark,
+    ),
+  );
+}
+
+
+===== FILE: mobile/lib/features/home/presentation/pages/home_page.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/home/presentation/providers.dart';
+import 'package:locora_mobile/features/settings/presentation/providers.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
+
+class HomePage extends ConsumerWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final status = ref.watch(appStatusProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.appTitle),
+        actions: [
+          IconButton(
+            onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
+            icon: const Icon(Icons.dark_mode_outlined),
+            tooltip: l10n.toggleTheme,
+          ),
+          PopupMenuButton<Locale>(
+            icon: const Icon(Icons.language_outlined),
+            onSelected: (locale) {
+              ref.read(localeProvider.notifier).setLocale(locale);
+            },
+            itemBuilder: (context) {
+              return const [
+                PopupMenuItem<Locale>(
+                  value: Locale('tr'),
+                  child: Text('TR'),
+                ),
+                PopupMenuItem<Locale>(
+                  value: Locale('en'),
+                  child: Text('EN'),
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.emptyHomeTitle),
+              const SizedBox(height: 8),
+              Text('${l10n.statusLabel}: $status'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/home/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Phase 0 Riverpod sample provider to validate DI/state wiring.
+final appStatusProvider = Provider<String>((ref) {
+  return 'ready';
+});
+
+
+===== FILE: mobile/lib/features/settings/presentation/providers.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>(
+  (ref) => ThemeModeNotifier(),
+);
+
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>(
+  (ref) => LocaleNotifier(),
+);
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.system);
+
+  void toggle() {
+    if (state == ThemeMode.dark) {
+      state = ThemeMode.light;
+      return;
+    }
+    state = ThemeMode.dark;
+  }
+}
+
+class LocaleNotifier extends StateNotifier<Locale> {
+  LocaleNotifier() : super(const Locale('tr'));
+
+  void setLocale(Locale locale) {
+    state = locale;
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/domain/entities/place.dart =====
+class Place {
+  const Place({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+}
+
+
+===== FILE: mobile/lib/features/places/domain/repositories/places_repository.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+
+abstract class PlacesRepository {
+  Future<List<Place>> getNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  });
+}
+
+
+===== FILE: mobile/lib/features/places/domain/usecases/get_nearby_places.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+
+class GetNearbyPlaces {
+  const GetNearbyPlaces(this._repository);
+
+  final PlacesRepository _repository;
+
+  Future<List<Place>> call({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) {
+    return _repository.getNearbyPlaces(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/models/place_model.dart =====
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+
+class PlaceModel extends Place {
+  const PlaceModel({
+    required super.id,
+    required super.name,
+    required super.latitude,
+    required super.longitude,
+  });
+
+  factory PlaceModel.fromJson(Map<String, dynamic> json) {
+    return PlaceModel(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/datasources/places_remote_datasource.dart =====
+import 'package:locora_mobile/config/supabase_config.dart';
+import 'package:locora_mobile/features/places/data/models/place_model.dart';
+
+abstract class PlacesRemoteDataSource {
+  Future<List<PlaceModel>> fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  });
+}
+
+class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
+  @override
+  Future<List<PlaceModel>> fetchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) async {
+    final response = await SupabaseConfig.client.functions.invoke(
+      'place-provider',
+      body: {
+        'lat': latitude,
+        'lng': longitude,
+        'radius': radiusMeters,
+      },
+    );
+
+    final data = response.data;
+    if (data is! List) {
+      return const [];
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(PlaceModel.fromJson)
+        .toList();
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/data/repositories/places_repository_impl.dart =====
+import 'package:locora_mobile/features/places/data/datasources/places_remote_datasource.dart';
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+
+class PlacesRepositoryImpl implements PlacesRepository {
+  const PlacesRepositoryImpl(this._remoteDataSource);
+
+  final PlacesRemoteDataSource _remoteDataSource;
+
+  @override
+  Future<List<Place>> getNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required int radiusMeters,
+  }) {
+    return _remoteDataSource.fetchNearbyPlaces(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+    );
+  }
+}
+
+
+===== FILE: mobile/lib/features/places/presentation/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:locora_mobile/features/places/data/datasources/places_remote_datasource.dart';
+import 'package:locora_mobile/features/places/data/repositories/places_repository_impl.dart';
+import 'package:locora_mobile/features/places/domain/entities/place.dart';
+import 'package:locora_mobile/features/places/domain/repositories/places_repository.dart';
+import 'package:locora_mobile/features/places/domain/usecases/get_nearby_places.dart';
+
+final placesRemoteDataSourceProvider = Provider<PlacesRemoteDataSource>(
+  (ref) => PlacesRemoteDataSourceImpl(),
+);
+
+final placesRepositoryProvider = Provider<PlacesRepository>(
+  (ref) => PlacesRepositoryImpl(ref.watch(placesRemoteDataSourceProvider)),
+);
+
+final getNearbyPlacesUseCaseProvider = Provider<GetNearbyPlaces>(
+  (ref) => GetNearbyPlaces(ref.watch(placesRepositoryProvider)),
+);
+
+final nearbyPlacesProvider = FutureProvider.family<List<Place>, NearbyPlacesQuery>(
+  (ref, query) {
+    return ref.watch(getNearbyPlacesUseCaseProvider).call(
+          latitude: query.latitude,
+          longitude: query.longitude,
+          radiusMeters: query.radiusMeters,
+        );
+  },
+);
+
+class NearbyPlacesQuery {
+  const NearbyPlacesQuery({
+    required this.latitude,
+    required this.longitude,
+    required this.radiusMeters,
+  });
+
+  final double latitude;
+  final double longitude;
+  final int radiusMeters;
+}
+
+
+===== FILE: mobile/lib/l10n/app_localizations.dart =====
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+class AppLocalizations {
+  AppLocalizations(this.locale);
+
+  final Locale locale;
+  late final Map<String, String> _localizedValues;
+
+  static const supportedLocales = [
+    Locale('tr'),
+    Locale('en'),
+  ];
+
+  static const localizationsDelegates = [
+    _AppLocalizationsDelegate(),
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ];
+
+  static AppLocalizations of(BuildContext context) {
+    final localizations = Localizations.of<AppLocalizations>(
+      context,
+      AppLocalizations,
+    );
+    if (localizations == null) {
+      throw StateError('AppLocalizations not found in widget tree.');
+    }
+    return localizations;
+  }
+
+  Future<void> load() async {
+    final jsonString = await rootBundle.loadString(
+      'lib/l10n/${locale.languageCode}.json',
+    );
+
+    final mapped = json.decode(jsonString) as Map<String, dynamic>;
+    _localizedValues = mapped.map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
+  }
+
+  String _text(String key) => _localizedValues[key] ?? key;
+
+  String get appTitle => _text('appTitle');
+  String get emptyHomeTitle => _text('emptyHomeTitle');
+  String get statusLabel => _text('statusLabel');
+  String get toggleTheme => _text('toggleTheme');
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) {
+    return AppLocalizations.supportedLocales
+        .map((item) => item.languageCode)
+        .contains(locale.languageCode);
+  }
+
+  @override
+  Future<AppLocalizations> load(Locale locale) async {
+    final localizations = AppLocalizations(locale);
+    await localizations.load();
+    return localizations;
+  }
+
+  @override
+  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) {
+    return false;
+  }
+}
+
+
+===== FILE: mobile/lib/l10n/en.json =====
+{
+  "appTitle": "Locora",
+  "emptyHomeTitle": "Home is ready",
+  "statusLabel": "Status",
+  "toggleTheme": "Toggle theme"
+}
+
+
+===== FILE: mobile/lib/l10n/tr.json =====
+{
+  "appTitle": "Locora",
+  "emptyHomeTitle": "Ana ekran hazir",
+  "statusLabel": "Durum",
+  "toggleTheme": "Temayi degistir"
+}
+
+
+===== FILE: mobile/test/smoke_test.dart =====
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('phase 0 scaffold smoke test', () {
+    expect(1 + 1, 2);
+  });
+}
+
+
+===== FILE: supabase/.env.example =====
+SUPABASE_PROJECT_ID=your-project-id
+SUPABASE_PROJECT_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+GOOGLE_PLACES_API_KEY=your-google-places-key
+
+
+===== FILE: supabase/migrations/202607060001_enable_postgis.sql =====
+create extension if not exists postgis;
+
+
+===== FILE: supabase/functions/tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["**/*.ts", "**/*.d.ts"]
+}
+
+
+===== FILE: supabase/functions/deno.d.ts =====
+declare namespace Deno {
+  function serve(
+    handler: (request: Request) => Response | Promise<Response>,
+  ): void;
+}
+
+
+===== FILE: supabase/functions/ai-tagging/index.ts =====
+// Supabase Edge Function: ai-tagging
+
+// @ts-ignore Deno global is provided by Supabase Edge Runtime.
+Deno.serve(async (_req: Request): Promise<Response> => {
+  return new Response(JSON.stringify({ status: 'ok' }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+
+===== FILE: supabase/functions/place-provider/index.ts =====
+// Supabase Edge Function: place-provider
+// Proxies external place APIs. Keep API keys only in function secrets.
+
+// @ts-ignore Deno global is provided by Supabase Edge Runtime.
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const payload = await req.json().catch(() => null);
+  if (!payload) {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const lat = Number(payload.lat);
+  const lng = Number(payload.lng);
+  const radius = Number(payload.radius ?? 1000);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return new Response(JSON.stringify({ error: 'lat and lng are required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Placeholder response for Phase 0. Real provider integration starts in later phases.
+  const sample = [
+    {
+      id: 'sample-1',
+      name: 'Sample Place',
+      latitude: lat,
+      longitude: lng,
+      radius,
+    },
+  ];
+
+  return new Response(JSON.stringify(sample), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+
+
