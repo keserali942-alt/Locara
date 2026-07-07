@@ -30,6 +30,7 @@ flutter gen-l10n
 if [[ ! -f android/app/build.gradle && ! -f android/app/build.gradle.kts ]]; then
   echo "INFO: Android scaffold missing, generating with flutter create"
   flutter create --platforms=android --project-name locora_mobile .
+  rm -f test/widget_test.dart
 fi
 
 echo "==> flutter analyze"
