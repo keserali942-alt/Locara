@@ -27,6 +27,11 @@ flutter pub get
 echo "==> flutter gen-l10n"
 flutter gen-l10n
 
+if [[ ! -f android/app/build.gradle && ! -f android/app/build.gradle.kts ]]; then
+  echo "INFO: Android scaffold missing, generating with flutter create"
+  flutter create --platforms=android --project-name locora_mobile .
+fi
+
 echo "==> flutter analyze"
 flutter analyze
 
