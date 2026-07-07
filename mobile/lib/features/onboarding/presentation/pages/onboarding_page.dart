@@ -23,7 +23,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     final controllerState = ref.watch(onboardingControllerProvider);
 
     ref.listen<AsyncValue<void>>(onboardingControllerProvider, (previous, next) {
