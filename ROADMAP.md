@@ -23,3 +23,9 @@ Completion criteria:
 
 Status:
 - Implemented in code, waiting runtime verification in environment with Flutter SDK.
+
+## CI Follow-up Note
+
+- Add iOS CI validation in a later phase (e.g. Phase 2+):
+	- `flutter build ios --no-codesign`
+	- Keep Android debug build gate in place as baseline.

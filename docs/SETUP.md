@@ -22,6 +22,19 @@ export GITHUB_TOKEN=<PAT_with_repo_scope>
 ./scripts/apply_branch_protection.sh
 ```
 
+What this script enforces on `main`:
+- Required status check: `verify-mobile`
+- Require branches to be up to date before merge
+- Require pull request review (1 approval)
+- Dismiss stale approvals on new commits
+- Block force pushes and deletions
+
+Manual fallback (if token lacks permissions):
+- GitHub → Settings → Branches → Branch protection rule (`main`)
+- Enable required status checks and add `verify-mobile`
+- Enable required pull request review and disable force push/deletion
+- Keep a screenshot or API output as audit proof for phase closure
+
 Note: The default Codespaces integration token may return `403 Resource not accessible by integration` for branch protection API. In that case, use a personal access token once.
 
 If local environment does not have Flutter, CI result becomes the mandatory source of truth.

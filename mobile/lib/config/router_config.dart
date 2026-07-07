@@ -21,8 +21,13 @@ class AppRouter {
   static const String home = '/';
 
   static GoRouter build(Ref ref) {
+    final onboardingSessionCache = ref.read(onboardingSessionStatusProvider.notifier);
+
     final refreshListenable = AuthRefreshListenable(
       ref.watch(authRepositoryProvider).authStateChanges(),
+      onAuthChanged: () {
+        onboardingSessionCache.clear();
+      },
     );
 
     ref.onDispose(refreshListenable.dispose);
@@ -51,8 +56,14 @@ class AppRouter {
         }
 
         final userId = session.user.id;
-        final onboardingCompleted = await ref
-            .read(onboardingCompletedProvider(userId).future);
+        final cachedStatus = onboardingSessionCache.statusOf(userId);
+        final onboardingCompleted =
+            cachedStatus ??
+            await ref.read(onboardingCompletedProvider(userId).future);
+
+        if (cachedStatus == null) {
+          onboardingSessionCache.setStatus(userId, completed: onboardingCompleted);
+        }
 
         if (!onboardingCompleted) {
           if (isAtOnboarding) {
@@ -95,8 +106,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 class AuthRefreshListenable extends ChangeNotifier {
-  AuthRefreshListenable(Stream<AuthState> authStateStream) {
+  AuthRefreshListenable(
+    Stream<AuthState> authStateStream, {
+    required VoidCallback onAuthChanged,
+  }) {
     _subscription = authStateStream.listen((_) {
+      onAuthChanged();
       notifyListeners();
     });
   }

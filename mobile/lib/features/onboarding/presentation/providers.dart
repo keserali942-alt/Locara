@@ -30,6 +30,11 @@ final onboardingCompletedProvider = FutureProvider.family<bool, String>(
   (ref, userId) => ref.watch(getOnboardingStatusUseCaseProvider).call(userId),
 );
 
+final onboardingSessionStatusProvider =
+    StateNotifierProvider<OnboardingSessionStatusController, Map<String, bool>>(
+  (ref) => OnboardingSessionStatusController(),
+);
+
 final onboardingControllerProvider =
     StateNotifierProvider<OnboardingController, AsyncValue<void>>(
   (ref) => OnboardingController(ref),
@@ -61,6 +66,29 @@ class OnboardingController extends StateNotifier<AsyncValue<void>> {
           ),
     );
 
+    if (!state.hasError) {
+      _ref
+          .read(onboardingSessionStatusProvider.notifier)
+          .setStatus(userId, completed: true);
+    }
+
     _ref.invalidate(onboardingCompletedProvider(userId));
+  }
+}
+
+class OnboardingSessionStatusController extends StateNotifier<Map<String, bool>> {
+  OnboardingSessionStatusController() : super(const {});
+
+  bool? statusOf(String userId) => state[userId];
+
+  void setStatus(String userId, {required bool completed}) {
+    state = {
+      ...state,
+      userId: completed,
+    };
+  }
+
+  void clear() {
+    state = const {};
   }
 }
