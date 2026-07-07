@@ -4,7 +4,7 @@ import 'package:locora_mobile/config/router_config.dart';
 import 'package:locora_mobile/config/supabase_config.dart';
 import 'package:locora_mobile/config/theme_config.dart';
 import 'package:locora_mobile/features/settings/presentation/providers.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:locora_mobile/features/auth/presentation/providers.dart';
 import 'package:locora_mobile/features/home/presentation/providers.dart';
 import 'package:locora_mobile/features/settings/presentation/providers.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});

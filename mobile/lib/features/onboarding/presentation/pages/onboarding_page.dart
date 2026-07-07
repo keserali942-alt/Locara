@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:locora_mobile/features/onboarding/domain/entities/discovery_profile.dart';
 import 'package:locora_mobile/features/onboarding/presentation/providers.dart';
 import 'package:locora_mobile/features/onboarding/presentation/widgets/question_card.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
@@ -133,7 +133,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             QuestionCard(
               title: l10n.onboardingWalking,
               child: DropdownButtonFormField<String>(
-                value: _walkingPreference,
+                initialValue: _walkingPreference,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: [
                   DropdownMenuItem(
@@ -162,7 +162,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             QuestionCard(
               title: l10n.onboardingPace,
               child: DropdownButtonFormField<String>(
-                value: _tripPace,
+                initialValue: _tripPace,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: [
                   DropdownMenuItem(value: 'slow', child: Text(l10n.paceSlow)),

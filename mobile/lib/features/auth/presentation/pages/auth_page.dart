@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:locora_mobile/features/auth/presentation/providers.dart';
+import 'package:locora_mobile/l10n/app_localizations.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
   const AuthPage({super.key});
